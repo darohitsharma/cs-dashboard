@@ -1,0 +1,21 @@
+{
+  "name": "cs-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node tests/smoke.mjs"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.0"
+  },
+  "devDependencies": {
+    "vite": "^7.3.7"
+  },
+  "engines": {
+    "node": ">=20.19.0 || >=22.12.0"
+  }
+}
