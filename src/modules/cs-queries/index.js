@@ -1,6 +1,6 @@
 import { Chart, registerables } from 'chart.js';
 import { loadCsSummary, loadCsThemes, loadCsInsights } from '../../data/adapter.js';
-import { getLive, getSheetId, setSheetId } from '../../data/sheetSource.js';
+import { getLive, getSheetId } from '../../data/sheetSource.js';
 import { buildFindings } from './findings.js';
 import { themesHtml } from './themes-view.js';
 import { insightsHtml } from './insights-view.js';
@@ -366,30 +366,31 @@ export default {
   },
 };
 
-// First screen when no data is loaded: ask for the sheet ID and connect.
+// First screen when no data is loaded: sign in with the work Google account.
 // Customer rows are processed in this browser and not uploaded to this site's server.
 function renderConnectPanel(root) {
   root.innerHTML = `
     <div class="page-head"><div><h1>Customer Queries</h1>
-      <div class="muted">Reads your Google Sheet directly in this browser, read-only.</div></div></div>
+      <div class="muted">Reads the Google Sheet directly in this browser, read-only.</div></div></div>
     <div class="card" style="max-width:560px">
-      <h3>Connect your Google Sheet</h3>
-      <p class="muted">Paste the ID of the Google Sheet (the long code between /d/ and /edit in its link), then sign in with the Google account that can open it.</p>
-      <p><input id="sheet-id-input" type="text" spellcheck="false" autocomplete="off" placeholder="Google Sheet ID" style="width:100%;padding:8px" value=""></p>
-      <p><button id="sheet-connect-panel" class="primary">Connect Google Sheet (sign in)</button> <span id="sheet-panel-status" class="muted"></span></p>
-      <p class="muted">Customer rows are processed in your browser and not uploaded to this site's server. The sheet ID is kept for this browser session only.</p>
+      <h3>Sign in to open the dashboard</h3>
+      <p class="muted">Use your nathabit.in Google account. Only nathabit.in accounts can sign in, and your account also needs access to the data sheet (ask the sheet owner to share it if you do not have it).</p>
+      <p><button id="sheet-connect-panel" class="primary">Sign in with Google</button> <span id="sheet-panel-status" class="muted"></span></p>
+      <p class="muted">Customer rows are processed in your browser and not uploaded to this site's server. Nothing is written to the sheet (read-only).</p>
     </div>`;
-  const input = root.querySelector('#sheet-id-input');
-  input.value = getSheetId();
   root.querySelector('#sheet-connect-panel').onclick = async (ev) => {
-    const st = root.querySelector('#sheet-panel-status'); const b = ev.target; b.disabled = true;
+    const st = root.querySelector('#sheet-panel-status'); const b = ev.target;
+    if (!getSheetId()) { st.textContent = 'This link does not carry the sheet key. Ask the sheet owner for the full dashboard link.'; return; }
+    b.disabled = true;
     try {
-      setSheetId(input.value);
       const { connectAndLoad } = await import('../../data/sheetSource.js');
       st.textContent = 'Signing in...';
       await connectAndLoad((n) => { st.textContent = `Reading sheet: ${n.toLocaleString('en-IN')} rows...`; });
       st.textContent = 'Building charts...';
       window.dispatchEvent(new HashChangeEvent('hashchange'));
-    } catch (e) { st.textContent = e.message; b.disabled = false; }
+    } catch (e) {
+      st.textContent = e.message + (/access_denied|restricted|organization/i.test(e.message) ? ' Only nathabit.in accounts can sign in.' : '');
+      b.disabled = false;
+    }
   };
 }

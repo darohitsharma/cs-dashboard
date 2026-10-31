@@ -6,7 +6,7 @@ app.innerHTML = `
   <aside class="sidebar" id="sidebar">
     <div class="brand"><span class="logo"></span><span>Growth OS</span></div>
     <nav id="nav"></nav>
-    <div class="side-foot">Standalone build · v1.0.0</div>
+    <div class="side-foot">Standalone build · v1.1.0</div>
   </aside>
   <main class="main" id="main"></main>`;
 

@@ -3,8 +3,8 @@
 A standalone, read-only browser dashboard for customer-query data kept in a Google Sheet. Built with Vite, vanilla JS and Chart.js. No backend, no database, no tracking.
 
 ## How it works
-- You paste the ID of your own Google Sheet and sign in with a Google account that can open it.
-- The page reads the sheet straight from Google into your browser and builds every chart and count there. Customer rows are processed in your browser and are not uploaded to this site's server. The sheet ID is kept for this browser session only.
+- The sheet owner shares a link that carries the sheet key (`?sheet=...`). Opening that link, you sign in with your Google account (only accounts on the allowed domain can sign in) and your account needs access to the sheet.
+- The page reads the sheet straight from Google into your browser and builds every chart and count there. Customer rows are processed in your browser and are not uploaded to this site's server. The sheet key is kept for this browser session only and is never stored in this repo.
 - Nothing is ever written to the sheet (read-only scope).
 
 ## The sheet it expects

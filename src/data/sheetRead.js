@@ -10,7 +10,7 @@ async function api(url, token, tries = 4) {
     if (res.ok) return res.json();
     if (res.status === 429 || res.status >= 500) { await new Promise((r) => setTimeout(r, 2000 * 2 ** i)); continue; }
     const msg = (await res.json().catch(() => ({}))).error?.message || res.status;
-    throw new Error(res.status === 403 || res.status === 404 ? `No access to the sheet (${msg}). Sign in with an account that can open it.` : `Sheets API: ${msg}`);
+    throw new Error(res.status === 403 || res.status === 404 ? `No access to the data sheet with this Google account (${msg}). Ask the sheet owner to share it with your nathabit.in email.` : `Sheets API: ${msg}`);
   }
   throw new Error('Google Sheets is busy (rate limit). Try again in a minute.');
 }
