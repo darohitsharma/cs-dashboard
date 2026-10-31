@@ -20,7 +20,8 @@ export function buildFindings(d, themes, mode = 'all') {
   if (secTotal) out.push({ k: 'Inside Product Related', text: `Of the ${fmt(pr)} Product Related queries, ${fmt(secTotal)} (${share(secTotal, pr)}) have a secondary intent in Main. Among those ${fmt(secTotal)}: usage & performance, product information & safety and regime requests together are ${share(hes, secTotal)} (${fmt(hes)}), and product recommendation alone is ${share(g('product recommendation'), secTotal)} (${fmt(g('product recommendation'))}).` });
 
   // Status labels exactly as given in the Main sheet. They are upstream labels, not a catalogue check.
-  const byStatus = (st) => Object.entries(d.categories).filter(([, v]) => v.status === st).map(([k, v]) => [k, sum(v.monthly)]).sort((a, b) => b[1] - a[1]).filter((x) => x[1] > 0);
+  // Row-level: count rows whose own Status label matches, grouped by their category (category buckets can mix statuses).
+  const byStatus = (st) => Object.entries((d.statusCat || {})[st] || {}).map(([k, v]) => [k, sum(v)]).filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]);
   const opp = byStatus('Opportunity');
   if (opp.length) {
     const t = sum(opp.map((x) => x[1]));

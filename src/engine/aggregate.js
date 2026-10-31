@@ -51,7 +51,7 @@ const months = monthIdx.map((k) => `${MON[k % 12]}-${Math.floor(k / 12)}`);
 const at = (r) => r.y * 12 + r.m - first;
 const zero = () => monthIdx.map(() => 0);
 
-const monthly = zero(), primary = {}, secondary = {}, status = {}, cats = {}, catsPR = {}, concern = { specific: zero(), generic: zero() };
+const monthly = zero(), primary = {}, secondary = {}, status = {}, statusCat = {}, cats = {}, catsPR = {}, concern = { specific: zero(), generic: zero() };
 for (const r of recs) {
   const i = at(r);
   monthly[i]++;
@@ -59,6 +59,7 @@ for (const r of recs) {
   if (r.p) (primary[r.p] ||= zero())[i]++;
   if (r.p === 'Product Related' && r.s) (secondary[r.s] ||= zero())[i]++;
   (status[r.t.trim()] ||= zero())[i]++;
+  ((statusCat[r.t.trim()] ||= {})[r.c || 'Others'] ||= zero())[i]++;
   if (r.p === 'Product Related') (catsPR[r.c || 'Others'] ||= zero())[i]++; // category inside Product Related, Others included
   if (r.c && r.c !== 'Others') {
     const o = (cats[r.c] ||= { status: r.t.trim(), monthly: zero() });
@@ -93,6 +94,6 @@ for (const category of Object.keys(tot)) {
   for (const r of rs) { if (all && run / all >= 0.75) break; catConcernTop.rows.push(r); run += r.q.reduce((x, y) => x + y, 0); }
   if (rs.length) catConcernTop.rows.push(catConcern.rows.find((r) => r.category === category && r.concern === '__total__'));
 }
-const out = { meta: { source, rows: recs.length }, months, monthly: { months, counts: monthly }, primary, secondary, categories: cats, categoriesPR: catsPR, concern, status, catConcern, catConcernTop };
+const out = { meta: { source, rows: recs.length }, months, monthly: { months, counts: monthly }, primary, secondary, categories: cats, categoriesPR: catsPR, concern, status, statusCat, catConcern, catConcernTop };
 return { out, info, used: recs.length };
 }

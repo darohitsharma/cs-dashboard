@@ -62,7 +62,7 @@ export default {
     const sl = (a) => a.slice(from, to + 1);
     const mapObj = (o, f) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, f(v)]));
     const pickQ = (c) => { if (!c) return c; const qi = quarterIdx(c.quarters, from, to); return { ...c, quarters: qi.map((i) => c.quarters[i]), rows: c.rows.map((r) => ({ ...r, q: qi.map((i) => r.q[i]) })) }; };
-    const dp = { ...d, concern: d.concern ? mapObj(d.concern, sl) : undefined, months: sl(d.months), monthly: { ...d.monthly, counts: sl(d.monthly.counts) }, primary: mapObj(d.primary, sl), secondary: mapObj(d.secondary, sl), status: mapObj(d.status, sl), categories: mapObj(d.categories, (v) => ({ ...v, monthly: sl(v.monthly) })), catConcern: pickQ(d.catConcern), catConcernTop: pickQ(d.catConcernTop) };
+    const dp = { ...d, concern: d.concern ? mapObj(d.concern, sl) : undefined, months: sl(d.months), monthly: { ...d.monthly, counts: sl(d.monthly.counts) }, primary: mapObj(d.primary, sl), secondary: mapObj(d.secondary, sl), status: mapObj(d.status, sl), statusCat: mapObj(d.statusCat || {}, (m) => mapObj(m, sl)), categories: mapObj(d.categories, (v) => ({ ...v, monthly: sl(v.monthly) })), catConcern: pickQ(d.catConcern), catConcernTop: pickQ(d.catConcernTop) };
     const themesP = themes && themes.periods ? { ...themes.periods[state.period], note: themes.note } : null;
     const insightsP = insights && insights.periods ? insights : null;
     const findings = buildFindings(dp, themesP, state.period);
