@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Growth OS - No access</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23b5452a'/></svg>" />
+    <?!= include('BundleCss'); ?>
+    <style>body{font-family:Inter,system-ui,sans-serif;background:#f7f6f5;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}.card{background:#fff;border:1px solid #e7e4e1;border-radius:12px;padding:32px;max-width:480px}h1{font-size:20px;margin:0 0 8px}p{color:#6f6a64;font-size:14px;line-height:1.5}button.primary{background:#2b2926;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer}button.primary:disabled{opacity:.6;cursor:default}</style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>No access yet</h1>
+      <p>This dashboard is for your configured organization domain teammates. Signed-in teammates get access automatically unless the admin has removed them.</p>
+      <p class="muted" id="who"></p>
+      <div id="askbox" style="display:none;margin-top:16px">
+        <button class="primary" id="askbtn">Ask for access</button>
+        <span id="askmsg" class="muted" style="margin-left:8px"></span>
+      </div>
+      <p id="pendingbox" style="display:none;margin-top:16px"><b>Access requested.</b> The dashboard admin will review your request - no need to ask again.</p>
+      <p id="rejectedbox" style="display:none;margin-top:16px">Your request was not approved. If you think this is a mistake, please contact the dashboard admin.</p>
+      <p id="removedbox" style="display:none;margin-top:16px">Your access was removed by the dashboard admin. If you think this is a mistake, please contact them - only the admin can restore it.</p>
+    </div>
+    <script>
+      window.__USER__ = <?!= userJson ?>;
+      window.__REQ__ = <?!= reqJson ?>;
+      document.getElementById('who').textContent = window.__USER__ && window.__USER__.email ? 'Signed in as ' + window.__USER__.email : '';
+      function showStatus(s) {
+        document.getElementById('askbox').style.display = s === 'none' ? 'block' : 'none';
+        document.getElementById('pendingbox').style.display = s === 'pending' ? 'block' : 'none';
+        document.getElementById('rejectedbox').style.display = s === 'rejected' ? 'block' : 'none';
+        document.getElementById('removedbox').style.display = s === 'removed' ? 'block' : 'none';
+      }
+      showStatus((window.__REQ__ && window.__REQ__.status) || 'none');
+      document.getElementById('askbtn').onclick = function () {
+        var b = document.getElementById('askbtn'), m = document.getElementById('askmsg');
+        b.disabled = true; m.textContent = 'Sending...';
+        google.script.run
+          .withSuccessHandler(function (r) { b.disabled = false; m.textContent = ''; showStatus((r && r.status === 'viewer') ? 'none' : ((r && r.status) || 'pending')); if (r && r.status === 'viewer') location.reload(); })
+          .withFailureHandler(function (e) { b.disabled = false; m.textContent = (e && e.message) || 'Could not send the request. Try again.'; })
+          .requestAccess();
+      };
+    </script>
+  </body>
+</html>
