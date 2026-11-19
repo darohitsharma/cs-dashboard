@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Growth OS - Competitor Search Tracking</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23b5452a'/></svg>" />
+    <?!= include('BundleCss'); ?>
+    <style>
+      body{font-family:Inter,system-ui,sans-serif;background:#f7f6f5;margin:0;padding:24px;color:#23201d}
+      .wrap{max-width:1060px;margin:0 auto}
+      h1{font-size:22px;margin:0 0 4px}
+      .card{background:#fff;border:1px solid #e7e4e1;border-radius:12px;padding:20px;margin:16px 0}
+      h2{font-size:15px;margin:0 0 12px}
+      .muted{color:#6f6a64;font-size:12px}
+      .err{color:#b5452a;font-size:13px}
+      .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+      .warn{background:#fdf8ef;border:1px solid #ecd9ae;border-radius:12px;padding:14px 16px;margin:16px 0}
+      .warn h2{font-size:13px;margin:0 0 8px;color:#8a6414}
+      .warn li{font-size:12.5px;color:#5c5138;margin:4px 0}
+      .chip{border:1px solid #d8d2c8;background:#fff;border-radius:999px;padding:4px 12px;font-size:12.5px;cursor:pointer;user-select:none}
+      .chip.on{background:#2b2926;color:#fff;border-color:#2b2926}
+      .chip.nh.on{background:#b5452a;border-color:#b5452a}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th,td{text-align:right;padding:6px 8px;border-bottom:1px solid #efeae3}
+      th:first-child,td:first-child{text-align:left}
+      th{color:#6f6a64;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.04em}
+      tr.hl td{background:#faf1ec}
+      select{padding:7px 10px;border:1px solid #d8d2c8;border-radius:8px;font-size:13px;background:#fff;max-width:100%}
+      .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#5c564f;margin-top:6px}
+      .legend .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+      a.back{color:#6f6a64;font-size:13px;text-decoration:none}
+      .grid2{display:grid;grid-template-columns:1fr;gap:16px}
+      @media(min-width:900px){.grid2{grid-template-columns:1fr 1fr}}
+      svg text{font-family:Inter,system-ui,sans-serif}
+      td.editable { cursor: cell; }
+      td.editable:hover { outline: 1px dashed #b5452a; outline-offset: -1px; }
+      td.edt { background: #e8f0fe; }
+      td.man { font-style: italic; }
+      td.hlt { background: #fff0b3; }
+      td.editing { outline: 2px solid #b5452a; outline-offset: -2px; background: #fff; }
+      #sumtable.hlmode td.editable { cursor: copy; }
+      .hlbtn { border: 1px solid #d8d2c8; background: #fff; border-radius: 8px; padding: 3px 10px; font-size: 11.5px; cursor: pointer; color: #6f6a64; }
+      .hlbtn.on { background: #fff0b3; border-color: #d9b930; color: #3d3833; }
+      .rowreset { font-size: 10.5px; color: #6f6a64; cursor: pointer; text-decoration: underline; margin-left: 6px; }
+      #savestat { font-size: 11.5px; color: #6f6a64; margin-left: 10px; }
+      .asgmark { color: #b5452a; font-size: 10px; margin-left: 3px; font-weight: 700; }
+      #assignbar { display: none; margin: 0 0 8px; padding: 8px 10px; background: #faf7f2; border: 1px solid #e4ded4; border-radius: 10px; font-size: 12.5px; }
+      #assignbar select, #assignbar button { font-size: 12.5px; margin-left: 6px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="row" style="justify-content:space-between"><h1>Competitor Search Tracking</h1><a class="back" id="back" target="_top" href="">&larr; Back to dashboard</a></div>
+      <div class="muted" id="meta">Loading saved data...</div>
+      <div id="root"></div>
+    </div>
+    <script>
+      window.__USER__ = <?!= userJson ?>;
+      window.__APP_URL__ = <?!= appUrlJson ?>;
+      const USER = window.__USER__ || {};
+      const APP_URL = window.__APP_URL__ || '';
+      document.getElementById('back').href = APP_URL || '#';
+      function run(fn, ...args) {
+        return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...args));
+      }
+      const ping = () => { if (document.visibilityState === 'visible') run('heartbeat').catch(() => {}); };
+      ping(); setInterval(ping, 60000);
+
+      const baselineBrand = <?!= baselineJson ?>;
+      const NH = {test: (name) => String(name).trim().toLowerCase() === baselineBrand.trim().toLowerCase()};
+      const PALETTE = ['#4a6fa5','#3f8f6b','#c2873a','#7a5ea8','#b0567a','#5a8fbf','#8a9a3f','#a0684a','#4aa3a2','#946b9e','#6f8a5e','#b58a3a'];
+      const nhColor = '#b5452a';
+      const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const fmtFull = (v) => v == null ? '-' : Math.round(v).toLocaleString('en-IN');
+      const fmtCompact = (v) => {
+        if (v == null) return '-';
+        const a = Math.abs(v);
+        if (a >= 1e7) return (v / 1e7).toFixed(1).replace(/\.0$/, '') + ' Cr';
+        if (a >= 1e5) return (v / 1e5).toFixed(1).replace(/\.0$/, '') + ' L';
+        if (a >= 1e3) return Math.round(v / 1e3) + 'k';
+        return String(Math.round(v));
+      };
+      const fmtX = (v) => v == null ? '' : (Math.round(v * 100) / 100) + 'x';
+      const whenShort = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); };
+
+      let DATA = null; // {savedAt, when, pack}
+      const sel = { brands: new Set(), category: null, distBrand: null };
+
+      function latestIdx(values) { for (let i = values.length - 1; i >= 0; i--) if (values[i] != null) return i; return -1; }
+
+      // ---- tiny SVG charts ----
+      function lineChart(labels, series, opts) {
+        opts = opts || {};
+        const W = 920, H = opts.h || 320, P = { l: 56, r: opts.right ? 56 : 12, t: 12, b: 42 };
+        const iw = W - P.l - P.r, ih = H - P.t - P.b;
+        const mainSeries = opts.right ? series.slice(0, -1) : series;
+        const rightSeries = opts.right ? series[series.length - 1] : null;
+        let max = 0;
+        mainSeries.forEach((s) => s.values.forEach((v) => { if (v != null && v > max) max = v; }));
+        let maxR = 0;
+        if (rightSeries) rightSeries.values.forEach((v) => { if (v != null && v > maxR) maxR = v; });
+        if (!max && !maxR) return '<p class="muted">No data for this selection.</p>';
+        const niceMax = max * 1.08, niceMaxR = maxR * 1.08;
+        const x = (i) => P.l + (labels.length === 1 ? iw / 2 : (i / (labels.length - 1)) * iw);
+        const y = (v) => P.t + ih - (v / niceMax) * ih;
+        const yR = (v) => P.t + ih - (v / niceMaxR) * ih;
+        let out = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block">';
+        for (let g = 0; g <= 4; g++) {
+          const gv = (niceMax / 4) * g, gy = y(gv);
+          out += '<line x1="' + P.l + '" y1="' + gy + '" x2="' + (W - P.r) + '" y2="' + gy + '" stroke="#efeae3" stroke-width="1"/>';
+          out += '<text x="' + (P.l - 6) + '" y="' + (gy + 4) + '" font-size="10" fill="#6f6a64" text-anchor="end">' + fmtCompact(gv) + '</text>';
+        }
+        if (rightSeries && maxR) {
+          for (let g = 0; g <= 4; g++) {
+            const gv = (niceMaxR / 4) * g, gy = yR(gv);
+            out += '<text x="' + (W - P.r + 6) + '" y="' + (gy + 4) + '" font-size="10" fill="' + rightSeries.color + '" text-anchor="start">' + fmtCompact(gv) + '</text>';
+          }
+        }
+        const step = Math.max(1, Math.ceil(labels.length / 12));
+        labels.forEach((lb, i) => { if (i % step === 0 || i === labels.length - 1) out += '<text x="' + x(i) + '" y="' + (H - 24) + '" font-size="10" fill="#6f6a64" text-anchor="middle" transform="rotate(-28 ' + x(i) + ' ' + (H - 24) + ')">' + esc(lb) + '</text>'; });
+        series.forEach((s, si) => {
+          const yy = (opts.right && si === series.length - 1) ? yR : y;
+          let path = '', pen = false;
+          s.values.forEach((v, i) => {
+            if (v == null) { pen = false; return; }
+            path += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + yy(v).toFixed(1) + ' ';
+            pen = true;
+          });
+          out += '<path d="' + path + '" fill="none" stroke="' + s.color + '" stroke-width="' + (s.bold ? 3 : 1.8) + '"/>';
+          s.values.forEach((v, i) => {
+            if (v == null) return;
+            out += '<circle cx="' + x(i).toFixed(1) + '" cy="' + yy(v).toFixed(1) + '" r="' + (s.bold ? 3 : 2.2) + '" fill="' + s.color + '"><title>' + esc(s.name) + ' - ' + esc(labels[i]) + ': ' + fmtFull(v) + '</title></circle>';
+          });
+        });
+        out += '</svg>';
+        out += '<div class="legend">' + series.map((s) => '<span><span class="sw" style="background:' + s.color + '"></span>' + esc(s.name) + '</span>').join('') + '</div>';
+        return out;
+      }
+
+      function barChart(items, opts) {
+        opts = opts || {};
+        const W = 920, barH = 24, gap = 6, P = { l: 170, r: 90, t: 6, b: 6 };
+        const H = P.t + P.b + items.length * (barH + gap);
+        if (!items.length) return '<p class="muted">No data for this selection.</p>';
+        const max = Math.max(...items.map((it) => it.value || 0)) || 1;
+        const iw = W - P.l - P.r;
+        let out = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block">';
+        items.forEach((it, i) => {
+          const y = P.t + i * (barH + gap);
+          const w = Math.max(1, ((it.value || 0) / max) * iw);
+          out += '<text x="' + (P.l - 8) + '" y="' + (y + barH / 2 + 4) + '" font-size="11.5" fill="#3d3833" text-anchor="end">' + esc(it.label) + '</text>';
+          out += '<rect x="' + P.l + '" y="' + y + '" width="' + w.toFixed(1) + '" height="' + barH + '" rx="4" fill="' + (it.hl ? nhColor : '#b9c3d4') + '"><title>' + esc(it.label) + ': ' + fmtFull(it.value) + '</title></rect>';
+          out += '<text x="' + (P.l + w + 8) + '" y="' + (y + barH / 2 + 4) + '" font-size="11.5" fill="#3d3833">' + fmtCompact(it.value) + '</text>';
+        });
+        out += '</svg>';
+        return out;
+      }
+
+      // ---- renderers ----
+      function renderWarnings(pack) {
+        return '<div class="warn"><h2>Read before using these numbers</h2><ul>' +
+          pack.caveats.map((c) => '<li>' + esc(c) + '</li>').join('') + '</ul></div>';
+      }
+
+      function colorFor(name, i) { return NH.test(name) ? nhColor : PALETTE[i % PALETTE.length]; }
+
+      function renderBrandTrend(pack) {
+        const brands = pack.brands;
+        const chips = brands.map((b, i) =>
+          '<span class="chip' + (sel.brands.has(i) ? ' on' : '') + (NH.test(b.name) ? ' nh' : '') + '" data-bi="' + i + '">' + esc(b.name) + '</span>').join('');
+        const series = [...sel.brands].sort((a, b) => a - b).map((i) => ({
+          name: brands[i].name, values: brands[i].total, color: colorFor(brands[i].name, i), bold: NH.test(brands[i].name)
+        }));
+        return '<div class="card"><h2>Brand trends - monthly Google searches</h2>' +
+          '<div class="row" style="margin-bottom:10px">' + chips + '</div>' +
+          lineChart(pack.months, series) +
+          '<p class="muted">Brand totals across all tracked keywords, exactly as in the source workbook. Hover a point for the exact number.</p></div>';
+      }
+
+      function renderSummaryTable(pack) {
+        const months = pack.months;
+        const edits = pack.edits || {}, hls = pack.highlights || {};
+        const who = (e) => e ? (' by ' + e.by + ' - ' + whenShort(e.at)) : '';
+        // Same format as the stakeholder sheet's "New Google Search Data" tab:
+        // baseline brand first (comparison baseline), one row per brand, all month columns, then growth + vs-NH + Remarks.
+        const rows = pack.brands.slice().sort((a, z) => (NH.test(a.name) ? 0 : 1) - (NH.test(z.name) ? 0 : 1));
+        const head = '<tr><th>Brand</th>' + months.map((m) => '<th>' + esc(m) + '</th>').join('') +
+          '<th>6M Growth</th><th>Y-o-Y Growth</th><th>BRAND XX: BASELINE</th><th>Remarks</th></tr>';
+        const asgs = pack.assignments || {};
+        const cell = (b, k, raw, disp, extra) => {
+          const e = edits[k], h = hls[k], a = asgs[k];
+          let cls = 'editable', title = 'Click to edit';
+          let mark = '';
+          if (a && a.to) { mark = '<span class="asgmark">@</span>'; title = 'Assigned to ' + a.to + ' by ' + a.by + ' - ' + whenShort(a.at) + '. ' + title; }
+          if (e && k.indexOf('m|') === 0) { cls += ' edt'; title = 'Edited' + who(e) + ' (source: ' + (e.src == null ? '-' : fmtFull(e.src)) + ')'; }
+          else if (e) { cls += ' man'; title = 'Manual entry' + who(e) + ' - not auto-computed. Clear it to restore the computed value.'; }
+          if (h) { cls += ' hlt'; title = 'Highlighted' + who(h) + '. ' + title; }
+          if (extra) cls += ' ' + extra;
+          return '<td class="' + cls + '" data-k="' + esc(k) + '" data-raw="' + esc(raw) + '" title="' + esc(title) + '">' + disp + mark + '</td>';
+        };
+        const body = rows.map((b) => {
+          const hasEdits = Object.keys(edits).some((k) => k.split('|')[1] === b.name);
+          const tds = b.total.map((v, i) => {
+            const raw = v == null ? '' : String(v);
+            return cell(b, 'm|' + b.name + '|' + months[i], raw, v == null ? '-' : fmtFull(v));
+          }).join('');
+          const g6raw = b.g6 == null ? '' : String(b.g6), yoyraw = b.yoy == null ? '' : String(b.yoy), nhraw = b.nhRatio == null ? '' : String(b.nhRatio);
+          return '<tr' + (NH.test(b.name) ? ' class="hl"' : '') + '><td style="white-space:nowrap">' + esc(b.name) +
+            (hasEdits ? '<span class="rowreset" data-brand="' + esc(b.name) + '" title="Clear every edit on this row; source values come back">reset</span>' : '') + '</td>' +
+            tds +
+            cell(b, 'g6|' + b.name, g6raw, fmtX(b.g6) || '-') +
+            cell(b, 'yoy|' + b.name, yoyraw, fmtX(b.yoy) || '-') +
+            cell(b, 'nh|' + b.name, nhraw, fmtX(b.nhRatio) || '-') +
+            cell(b, 'remark|' + b.name, b.remark || '', esc(b.remark || ''), 'remarkcell') + '</tr>';
+        }).join('');
+        return '<div class="card"><h2>Brand summary - same format as the competitor sheet</h2>' +
+          '<div class="row" style="margin-bottom:8px"><button id="hlmode" class="hlbtn" type="button">Highlight cells</button><button id="asgmode" class="hlbtn" type="button">Assign to teammate</button><span id="savestat"></span></div>' +
+          '<div id="assignbar"></div>' +
+          '<div style="overflow-x:auto"><table id="sumtable" style="white-space:nowrap">' + head + body + '</table></div>' +
+          '<p class="muted">Same layout as the workbook tab: baseline brand pinned first as the baseline, monthly searches per brand, then 6M / Y-o-Y growth, BRAND XX: BASELINE and Remarks. Values only from the Google Sheet API workbook; "-" means the source cell is blank or a dash. Duplicate source labels are preserved rather than silently merged. ' +
+          'Click any value to edit it; it autosaves and everyone sees it (edits stay in this dashboard - the source Sheet is never changed). Editing a month recomputes the growth columns; a typed-in growth value shows in italics as a manual entry. Hover a coloured or blue cell to see who changed or highlighted it and when.</p></div>';
+      }
+
+      function renderCategory(pack) {
+        const cats = pack.categories;
+        if (sel.category == null || !cats[sel.category]) sel.category = Math.max(0, cats.findIndex((c) => /hair oil/i.test(c.name)));
+        const cat = cats[sel.category];
+        const opts = cats.map((c, i) => '<option value="' + i + '"' + (i === sel.category ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('');
+        const monthLabels = pack.catMonths || pack.months;
+        const li = latestIdx((cat.rows.find((r) => r.brand === 'TOTAL') || cat.rows[0]).values);
+        const monthLabel = li >= 0 ? monthLabels[li] : '';
+        const items = cat.rows.filter((r) => r.brand !== 'TOTAL')
+          .map((r) => ({ label: r.brand, value: li >= 0 ? r.values[li] : null, hl: NH.test(r.brand) }))
+          .filter((it) => it.value != null)
+          .sort((a, z) => z.value - a.value).slice(0, 14);
+        const trendRows = cat.rows.filter((r) => r.brand === 'TOTAL' || NH.test(r.brand));
+        trendRows.sort((a, b) => (NH.test(a.brand) ? 1 : 0) - (NH.test(b.brand) ? 1 : 0)); // baseline brand last = right axis
+        const series = trendRows.map((r, k) => ({ name: r.brand === 'TOTAL' ? cat.name + ' - all tracked brands' : r.brand + ' (right axis)', values: r.values, color: r.brand === 'TOTAL' ? '#4a6fa5' : nhColor, bold: NH.test(r.brand) }));
+        return '<div class="card"><h2>Category view</h2>' +
+          '<div class="row" style="margin-bottom:10px"><select id="catsel">' + opts + '</select><span class="muted">Bars: ' + esc(monthLabel) + ' searches per brand (top 14)</span></div>' +
+          barChart(items) +
+          '<h2 style="margin-top:16px">Category trend - total vs baseline brand</h2>' +
+          lineChart(monthLabels, series, { right: series.length > 1 && NH.test(series[series.length - 1].name) }) +
+          '<p class="muted">Same monthly values, two scales: category total on the left axis, baseline brand on the right axis (separate axes can make small and large series easier to compare).</p></div>';
+      }
+
+      function renderDist(pack) {
+        if (!pack.dist || !pack.dist.length) return '';
+        if (sel.distBrand == null || !pack.dist[sel.distBrand]) sel.distBrand = Math.max(0, pack.dist.findIndex((d) => NH.test(d.name)));
+        const opts = pack.dist.map((d, i) => '<option value="' + i + '"' + (i === sel.distBrand ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('');
+        const d = pack.dist[sel.distBrand];
+        const tiers = [['top10', 'Top 10 keywords'], ['top25', 'Top 25'], ['top50', 'Top 50'], ['top75', 'Top 75'], ['total', 'All tracked keywords']];
+        const colors = ['#b5452a', '#c2873a', '#4a6fa5', '#7a5ea8', '#2b2926'];
+        const series = tiers.map((t, k) => ({ name: t[1], values: d[t[0]] || [], color: colors[k], bold: k === 4 })).filter((s) => s.values.some((v) => v != null));
+        return '<div class="card"><h2>Keyword reach distribution</h2>' +
+          '<div class="row" style="margin-bottom:10px"><select id="distsel">' + opts + '</select></div>' +
+          lineChart(pack.distMonths, series) +
+          '<p class="muted">Searches coming from the brand\'s top-10, top-25, top-50 and top-75 keywords vs all its tracked keywords, per month.</p></div>';
+      }
+
+      function render() {
+        const pack = DATA.pack;
+        document.getElementById('meta').textContent = 'Source: ' + pack.source + ' · ' + DATA.when + ' · refresh only from the Admin page';
+        document.getElementById('root').innerHTML =
+          renderWarnings(pack) +
+          renderSummaryTable(pack) +
+          '<h2 style="margin:26px 2px 0">Extra views - not in the sheet</h2>' +
+          '<p class="muted" style="margin:4px 2px 14px">Same API-workbook data, presented a few extra ways. The table above is the sheet format.</p>' +
+          '<div id="trendwrap">' + renderBrandTrend(pack) + '</div>' +
+          renderCategory(pack) +
+          renderDist(pack) +
+          '<p class="muted" style="margin:18px 2px">' + esc(pack.note) + ' The original workbooks are never modified by this dashboard.</p>';
+        document.querySelectorAll('#trendwrap .chip').forEach((ch) => (ch.onclick = () => {
+          const i = Number(ch.dataset.bi);
+          if (sel.brands.has(i)) sel.brands.delete(i); else if (sel.brands.size < 8) sel.brands.add(i);
+          render();
+        }));
+        const cs = document.getElementById('catsel');
+        if (cs) cs.onchange = () => { sel.category = Number(cs.value); render(); };
+        const ds = document.getElementById('distsel');
+        if (ds) ds.onchange = () => { sel.distBrand = Number(ds.value); render(); };
+        wireSummaryTable();
+      }
+
+      let hlMode = false, asgMode = false, asgCell = null, asgList = null;
+      async function reloadData() {
+        DATA = await run('loadCompetitor');
+        render();
+      }
+      function saveStat(t) { const el = document.getElementById('savestat'); if (el) el.textContent = t; }
+      function wireSummaryTable() {
+        const tbl = document.getElementById('sumtable');
+        if (!tbl) return;
+        tbl.classList.toggle('hlmode', hlMode);
+        const hb = document.getElementById('hlmode');
+        if (hb) {
+          hb.classList.toggle('on', hlMode);
+          hb.textContent = hlMode ? 'Highlight mode ON - click cells, click here to stop' : 'Highlight cells';
+          hb.onclick = () => { hlMode = !hlMode; if (hlMode) asgMode = false; wireSummaryTable(); };
+        }
+        const ab = document.getElementById('asgmode');
+        if (ab) {
+          ab.classList.toggle('on', asgMode);
+          ab.textContent = asgMode ? 'Assign mode ON - click a cell, click here to stop' : 'Assign to teammate';
+          ab.onclick = () => { asgMode = !asgMode; if (asgMode) hlMode = false; asgCell = null; wireSummaryTable(); };
+        }
+        const abar = document.getElementById('assignbar');
+        if (abar && (!asgMode || !asgCell)) { abar.style.display = 'none'; }
+        if (abar && asgMode && asgCell) {
+          const cur = (DATA.pack.assignments || {})[asgCell];
+          abar.style.display = 'block';
+          abar.innerHTML = 'Assign <b>' + esc(asgCell) + '</b> to ' +
+            (asgList ? '<select id="asgsel"><option value="">- pick teammate -</option>' + asgList.map((v) => '<option' + (cur && cur.to === v ? ' selected' : '') + '>' + esc(v) + '</option>').join('') + '</select>' : 'loading teammates...') +
+            '<button id="asgok" type="button">Assign</button>' +
+            (cur && cur.to ? '<button id="asgclr" type="button">Clear assignment</button>' : '') +
+            '<button id="asgcancel" type="button">Cancel</button>';
+          const ok = document.getElementById('asgok');
+          if (ok) ok.onclick = async () => {
+            const v = document.getElementById('asgsel').value;
+            if (!v) { saveStat('Pick a teammate first'); return; }
+            saveStat('Assigning...');
+            const res = await run('assignCompetitorCell', asgCell, v);
+            saveStat(res && res.emailed ? 'Assigned - email sent to ' + v : 'Assigned (email not sent)');
+            asgCell = null; asgMode = false;
+            await reloadData();
+          };
+          const clr = document.getElementById('asgclr');
+          if (clr) clr.onclick = async () => {
+            saveStat('Clearing...');
+            await run('assignCompetitorCell', asgCell, '');
+            saveStat('Assignment cleared (no email sent)');
+            asgCell = null; asgMode = false;
+            await reloadData();
+          };
+          const cn = document.getElementById('asgcancel');
+          if (cn) cn.onclick = () => { asgCell = null; wireSummaryTable(); };
+        }
+        tbl.querySelectorAll('td.editable').forEach((td) => {
+          td.onclick = async () => {
+            if (hlMode) { toggleHlCell(td.dataset.k); return; }
+            if (asgMode) {
+              asgCell = td.dataset.k;
+              if (!asgList) { saveStat('Loading teammates...'); try { asgList = await run('listCompetitorAssignees'); saveStat(''); } catch (e) { saveStat(e.message || e); } }
+              wireSummaryTable();
+              return;
+            }
+            beginEditCell(td);
+          };
+        });
+        tbl.querySelectorAll('.rowreset').forEach((el) => {
+          el.onclick = async (ev) => {
+            ev.stopPropagation();
+            saveStat('Resetting ' + el.dataset.brand + '...');
+            const fp = ((DATA.pack.overrideFps || {})[el.dataset.brand]) || '';
+            const res = await run('resetCompetitorOverrides', el.dataset.brand, fp);
+            if (res && res.conflict) {
+              saveStat(el.dataset.brand + ' changed while you were viewing - showing the latest instead.');
+            } else {
+              saveStat('Reset done');
+            }
+            await reloadData();
+          };
+        });
+      }
+      async function toggleHlCell(k) {
+        saveStat('Saving highlight...');
+        await run('toggleCompetitorHighlight', 'hl|' + k);
+        saveStat('Saved');
+        await reloadData();
+      }
+      function beginEditCell(td) {
+        if (td.classList.contains('editing')) return;
+        td.classList.add('editing');
+        td.contentEditable = 'true';
+        td.focus();
+        document.execCommand('selectAll', false, null);
+        const done = () => { td.contentEditable = 'false'; td.classList.remove('editing'); };
+        td.onblur = () => { commitEditCell(td, done); };
+        td.onkeydown = (ev) => {
+          if (ev.key === 'Enter') { ev.preventDefault(); td.blur(); }
+          if (ev.key === 'Escape') { td.onblur = null; render(); }
+        };
+      }
+      async function commitEditCell(td, done) {
+        const k = td.dataset.k, expected = td.dataset.raw;
+        done();
+        let val = td.innerText.trim();
+        if (k.indexOf('remark|') !== 0) val = val.replace(/[x,\s]/gi, '');
+        if (val === '-') val = '';
+        const same = (val === expected) || (val !== '' && expected !== '' && !isNaN(Number(val)) && !isNaN(Number(expected)) && Number(val) === Number(expected));
+        if (same) { render(); return; }
+        saveStat('Saving...');
+        const res = await run('saveCompetitorOverride', k, val, expected);
+        if (res && res.conflict) {
+          saveStat('Someone else changed this cell first - showing the latest');
+        } else {
+          saveStat('Saved');
+        }
+        await reloadData();
+      }
+
+      (async () => {
+        try {
+          DATA = await run('loadCompetitor');
+          const pack = DATA.pack;
+          // default brand selection: baseline brand + 4 biggest others by latest month
+          const scored = pack.brands.map((b, i) => ({ i, v: b.total[latestIdx(b.total)] || 0, nh: NH.test(b.name) }));
+          const nh = scored.filter((x) => x.nh);
+          const others = scored.filter((x) => !x.nh).sort((a, z) => z.v - a.v).slice(0, 4);
+          nh.concat(others).forEach((x) => sel.brands.add(x.i));
+          render();
+        } catch (e) {
+          document.getElementById('meta').textContent = '';
+          document.getElementById('root').innerHTML = '<div class="card"><p class="err">' + esc(e.message || e) + '</p></div>';
+        }
+      })();
+    </script>
+  </body>
+</html>
