@@ -56,6 +56,7 @@ async function getSignedInEmail(token) {
 
 // Sign in, read the sheet and the settings tab, aggregate in the browser. Sets the live data used by the adapter.
 export async function connectAndLoad(onProgress) {
+  if (!CONFIG.clientId || !CONFIG.domain) throw new Error('Configure your own clientId and domain in src/config.js first. The public sample demo needs no Google account.');
   const sheetId = getSheetId();
   if (!sheetId) throw new Error('This link does not carry the sheet key. Ask the sheet owner for the full dashboard link.');
   await loadGis();
