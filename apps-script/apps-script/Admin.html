@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Growth OS - Admin</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23b5452a'/></svg>" />
+    <?!= include('BundleCss'); ?>
+    <style>
+      body{font-family:Inter,system-ui,sans-serif;background:#f7f6f5;margin:0;padding:24px;color:#23201d}
+      .wrap{max-width:860px;margin:0 auto}
+      h1{font-size:22px;margin:0 0 4px}
+      .card{background:#fff;border:1px solid #e7e4e1;border-radius:12px;padding:20px;margin:16px 0}
+      h2{font-size:15px;margin:0 0 12px}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #efeae3}
+      th{color:#6f6a64;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.04em}
+      button.primary{background:#2b2926;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer}
+      button.link{background:none;border:0;color:#4a6fa5;cursor:pointer;font-size:13px;padding:4px}
+      input{padding:8px 10px;border:1px solid #d8d2c8;border-radius:8px;font-size:13px;width:260px}
+      .muted{color:#6f6a64;font-size:12px}
+      .err{color:#b5452a;font-size:13px}
+      .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+      .badge{background:#efeae3;color:#6f6a64;border-radius:6px;padding:1px 6px;font-size:11px;margin-left:6px}
+      .live{display:inline-block;background:#e7f4e8;color:#2e7d32;border:1px solid #bfe3c2;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600}
+      .live::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#2e7d32;margin-right:6px;vertical-align:1px}
+      .tl{display:flex;flex-direction:column}
+      .tl-row{display:flex;gap:12px;padding:7px 4px;border-bottom:1px solid #efeae3;font-size:13px;align-items:baseline}
+      .tl-when{color:#6f6a64;font-size:12px;white-space:nowrap;min-width:150px}
+      .tl-who{color:#6f6a64;font-size:12px}
+      .tl-dot{width:8px;height:8px;border-radius:50%;background:#b5aea6;flex:none;align-self:center}
+      .tl-dot.act{background:#4a6fa5}
+      .acttbl{width:100%;border-collapse:collapse}
+      .acttbl .sess-h td{background:#f4ede4;font-size:13px;border-top:2px solid #d8d2c8}
+      .acttbl .nw{white-space:nowrap;color:#6f6a64;font-size:12px}
+      .ty{border-radius:6px;padding:1px 8px;font-size:11px;font-weight:600;background:#efeae3;color:#6f6a64}
+      .ty-click{background:#e3ecf8;color:#2f5d9a}.ty-hover{background:#f3e8f8;color:#7a3f94}
+      tr.person{cursor:pointer}
+      tr.person:hover td{background:#faf7f3}
+      tr.person.sel td{background:#f4ede4}
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="row" style="justify-content:space-between"><h1>Dashboard admin</h1><a class="muted" id="back" target="_top" href="">&larr; Back to dashboard</a></div>
+      <div class="muted" id="who"></div>
+      <div class="card">
+        <h2>Approved viewers</h2>
+        <div class="row">
+          <input id="email" placeholder="teammate@example.org" />
+          <input id="note" placeholder="note (optional)" style="width:180px" />
+          <button class="primary" id="add">Add viewer</button>
+          <span id="addmsg" class="err"></span>
+        </div>
+        <table id="viewers" style="margin-top:12px"></table>
+        <p class="muted">Signed-in organization teammates get access automatically on first open - no approval needed. Removing someone blocks them from auto access until you add them back here. Use the viewer dropdown (or click a viewer) to filter the activity table below. "Live" means their dashboard tab was open in the last ~2 minutes: open tabs ping every minute while visible, so a closed, hidden or offline tab stops showing as Live on its own. It shows the tab is open, not that the person is actively reading.</p>
+        <div id="blockedwrap" style="display:none;margin-top:14px">
+          <h3 style="font-size:13px;margin:0 0 6px">Removed by you - not auto-granted again</h3>
+          <table id="blocked"></table>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Access requests <span id="reqmsg" class="muted" style="font-size:13px;font-weight:normal"></span></h2>
+        <table id="requests"></table>
+        <p class="muted">Organization teammates no longer need to ask - they get in automatically. This card lists any older requests: approving adds the person as a viewer, rejecting keeps them out (you can still add them manually above).</p>
+      </div>
+      <div class="card">
+        <h2>Dashboard data</h2>
+        <div class="row">
+          <button class="primary" id="reloaddata">Reload from Google Sheet now</button>
+          <button class="primary" id="reloadcharts">Reload Sheet charts only</button>
+          <button class="primary" id="reloadcomp">Reload competitor data now</button>
+          <span id="datamsg" class="muted"></span>
+        </div>
+        <p class="muted" id="datasaved"></p>
+        <p class="muted" id="compsaved"></p>
+        <p class="muted">This is the only place the sheet is re-read - the dashboard itself has no reload control for anyone. Viewers always see the last saved data, including the Summary/pivot chart tables. A full read can take up to a minute; if a reload fails, the previous saved data stays.</p>
+      </div>
+      <div class="card">
+        <h2><span id="acttitle">Activity (last 200, kept 30 days)</span> <select id="viewersel" style="padding:5px 8px;border:1px solid #d8d2c8;border-radius:8px;font-size:13px"></select> <button class="link" id="purge">Delete older than 30 days now</button> <button class="link" id="wipe">Delete all activity</button> <span id="purgemsg" class="muted"></span></h2>
+        <p class="muted" style="margin:0 0 8px">Sessions are estimated from the activity log (no real login/logout is recorded): a new session starts after 30 minutes with no activity. Time shown is first to last recorded action.</p>
+        <div id="log" style="overflow-x:auto"></div>
+      </div>
+    </div>
+    <script>
+      window.__USER__ = <?!= userJson ?>;
+      window.__APP_URL__ = <?!= appUrlJson ?>;
+      if (window.__APP_URL__) document.getElementById('back').href = window.__APP_URL__; else document.getElementById('back').style.display = 'none';
+      document.getElementById('who').textContent = 'Signed in as ' + window.__USER__.email + ' (admin)';
+      function run(fn, ...args) {
+        return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler((e) => rej(new Error((e && e.message) || 'Server error')))[fn](...args));
+      }
+      const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+      let state = null;
+      let filterEmail = null;
+      // The dashboard pings once a minute while its tab is visible; anything older
+      // than 2.5 minutes means the person no longer has it open. Never inferred
+      // from old log rows - only from live pings.
+      const LIVE_MS = 150000;
+      const isLive = (email) => { const p = (state.presence || {})[email] || 0; return p > 0 && (Date.now() - p) < LIVE_MS; };
+      const fmtAgo = (t) => {
+        const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+        if (m < 1) return 'just now';
+        if (m < 60) return m + (m === 1 ? ' min ago' : ' min ago');
+        const h = Math.round(m / 60);
+        if (h < 24) return h + (h === 1 ? ' hr ago' : ' hrs ago');
+        const d = Math.round(h / 24);
+        return d + (d === 1 ? ' day ago' : ' days ago');
+      };
+      const people = () => {
+        const list = [{ email: state.admin, role: 'Admin', addedAt: '', note: '' }];
+        state.viewers.forEach((v) => { if (v.email !== state.admin) list.push({ email: v.email, role: 'Viewer', addedAt: v.addedAt, note: v.note }); });
+        return list;
+      };
+      const lastSeen = (email) => {
+        let t = (state.presence || {})[email] || 0;
+        state.log.forEach((l) => { if (String(l.email).toLowerCase() === email && l.t > t) t = l.t; });
+        return t;
+      };
+      function renderViewers() {
+        const list = people();
+        document.getElementById('viewers').innerHTML = '<tr><th>Email</th><th>Added</th><th>Note</th><th>Status</th><th>Last seen</th><th></th></tr>' +
+          list.map((p) => {
+            const seen = lastSeen(p.email);
+            return '<tr class="person' + (filterEmail === p.email ? ' sel' : '') + '" data-person="' + esc(p.email) + '">' +
+              '<td>' + esc(p.email) + (p.role === 'Admin' ? '<span class="badge">admin</span>' : '') + '</td>' +
+              '<td>' + esc(p.addedAt) + '</td>' +
+              '<td>' + esc(p.note) + '</td>' +
+              '<td>' + (isLive(p.email) ? '<span class="live">Live</span>' : '<span class="muted">-</span>') + '</td>' +
+              '<td>' + (seen ? esc(fmtAgo(seen)) : '<span class="muted">never</span>') + '</td>' +
+              '<td>' + (p.role === 'Viewer' ? '<button class="link" data-rm="' + esc(p.email) + '">Remove</button>' : '') + '</td></tr>';
+          }).join('') +
+          (list.length === 1 ? '<tr><td colspan="6" class="muted">No viewers added yet. Any signed-in organization teammate appears here automatically after their first open.</td></tr>' : '');
+        document.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = async (e) => { e.stopPropagation(); await run('adminRemoveViewer', b.dataset.rm); refresh(); }));
+        document.querySelectorAll('tr.person').forEach((r) => (r.onclick = () => { if (r.dataset.person === String(state.admin).toLowerCase()) return; filterEmail = (filterEmail === r.dataset.person ? null : r.dataset.person); render(); }));
+      }
+      // Raw log events rendered as a readable per-person timeline. Older events are
+      // the same history, re-labelled; click/hover entries exist only from when
+      // action tracking shipped (they are live client actions, not reconstructed).
+      const VERBS = {
+        view: () => 'Opened the dashboard',
+        data: (d) => 'Loaded dashboard data' + (d ? ' (' + d + ')' : ''),
+        refresh: () => 'Reloaded dashboard data',
+        data_refresh: () => 'Reloaded data from the Google Sheet (saved for everyone)',
+        admin_view: () => 'Opened the admin page',
+        print: () => 'Requested Print / PDF',
+        purge: (d) => 'Deleted old history' + (d ? ' - ' + d : ''),
+        purge_all: (d) => 'Deleted ALL activity history' + (d ? ' - ' + d : ''),
+        viewer_add: (d) => 'Added viewer ' + d,
+        auto_access: () => 'Got access automatically (your configured organization domain sign-in)',
+        viewer_remove: (d) => 'Removed viewer ' + d,
+        deny: (d) => 'Was denied access' + (d ? ' (' + d + ')' : ''),
+        access_request: () => 'Asked for access',
+        request_approve: (d) => 'Approved access request from ' + d,
+        request_reject: (d) => 'Rejected access request from ' + d,
+        setup: () => 'Set up the private admin store',
+        click: (d) => 'Clicked ' + d,
+        hover: (d) => 'Explored ' + d,
+      };
+      const describe = (l) => {
+        const v = VERBS[l.event];
+        return typeof v === 'function' ? v(l.detail) : (v ? v() : (l.event + (l.detail ? ' - ' + l.detail : '')));
+      };
+      const isAction = (l) => l.event === 'click' || l.event === 'hover';
+      // Session-wise table. Sessions are INFERRED from the log: one person's events
+      // belong to the same session until 30 minutes pass with no activity. Older rows
+      // carry no click/hover detail and are shown as recorded, never reconstructed.
+      const SESSION_GAP_MS = 30 * 60000;
+      const typeOf = (l) => (l.event === 'click' ? 'Click' : l.event === 'hover' ? 'Hover' : 'Visit');
+      const whatOf = (l) => (l.event === 'click' || l.event === 'hover') ? String(l.detail || '').replace(/^(Explored|Clicked)\s*/i, '') : describe(l);
+      const hhmm = (ts) => String(ts).replace(/^.*?,\s*\d{4},?\s*/, '').replace(/^\d+ \w+ \d{4},\s*/, '');
+      function buildSessions(rows) {
+        const by = {};
+        rows.slice().sort((x, y) => x.t - y.t).forEach((l) => { (by[String(l.email).toLowerCase()] = by[String(l.email).toLowerCase()] || []).push(l); });
+        const out = [];
+        Object.keys(by).forEach((em) => {
+          let cur = null;
+          by[em].forEach((l) => {
+            if (!cur || l.t - cur.end > SESSION_GAP_MS) { cur = { email: em, start: l.t, startTs: l.ts, end: l.t, events: [] }; out.push(cur); }
+            cur.end = l.t; cur.events.push(l);
+          });
+        });
+        return out.sort((x, y) => y.start - x.start);
+      }
+      function renderLog() {
+        const adm = String(state.admin || '').toLowerCase();
+        const sel = document.getElementById('viewersel');
+        const vs = state.viewers.map((v) => v.email).filter((e) => e && e !== adm);
+        if (filterEmail && vs.indexOf(filterEmail) < 0) filterEmail = null;
+        sel.innerHTML = '<option value="">All viewers</option>' + vs.map((e) => '<option value="' + esc(e) + '"' + (e === filterEmail ? ' selected' : '') + '>' + esc(e) + '</option>').join('');
+        sel.onchange = () => { filterEmail = sel.value || null; render(); };
+        const rows = state.log.filter((l) => { const em = String(l.email).toLowerCase(); return em !== adm && (!filterEmail || em === filterEmail); });
+        const sessions = buildSessions(rows);
+        let html = '';
+        sessions.forEach((s, i) => {
+          const mins = Math.max(0, Math.round((s.end - s.start) / 60000));
+          const clicks = s.events.filter((l) => l.event === 'click').length;
+          const hovers = s.events.filter((l) => l.event === 'hover').length;
+          html += '<tbody class="sess"><tr class="sess-h"><td colspan="4"><b>Session ' + (sessions.length - i) + '</b> <span class="muted">(estimated)</span> &middot; ' + esc(s.email) + ' &middot; started ' + esc(s.startTs) +
+            ' &middot; first to last action: ' + (mins < 1 ? 'under 1 min' : mins + ' min') + ' &middot; ' + clicks + (clicks === 1 ? ' click, ' : ' clicks, ') + hovers + (hovers === 1 ? ' hover' : ' hovers') + '</td></tr>';
+          s.events.forEach((l) => {
+            html += '<tr><td class="nw">' + esc(l.ts) + '</td><td class="nw">' + esc(s.email) + '</td><td><span class="ty ty-' + typeOf(l).toLowerCase() + '">' + typeOf(l) + '</span></td><td>' + esc(whatOf(l)) + '</td></tr>';
+          });
+          html += '</tbody>';
+        });
+        document.getElementById('log').innerHTML = sessions.length
+          ? '<table class="acttbl"><thead><tr><th>Time</th><th>Person</th><th>Type</th><th>Where / what</th></tr></thead>' + html + '</table>'
+          : '<p class="muted">' + (filterEmail ? 'No activity for this viewer yet.' : 'No viewer activity yet.') + '</p>';
+        document.getElementById('acttitle').textContent = filterEmail ? 'Viewer activity by session - ' + filterEmail : 'Viewer activity by session (last 200 events, kept 30 days)';
+        
+      }
+      function mailNote(id, st, verb) {
+        const el = document.getElementById(id); if (!el || !st) return;
+        el.textContent = st.lastMailSent === false
+          ? verb + ', but the email could not be sent to ' + st.lastMailTo + ' - please tell them directly.'
+          : verb + ' - email sent to ' + st.lastMailTo + '.';
+        setTimeout(() => { el.textContent = ''; }, 10000);
+      }
+      function renderRequests() {
+        const reqs = state.requests || [];
+        const pend = reqs.filter((r) => r.status === 'pending');
+        const done = reqs.filter((r) => r.status !== 'pending').slice(0, 10);
+        let html = '';
+        if (pend.length) html += '<tr><th>Email</th><th>Requested</th><th></th></tr>' + pend.map((r) =>
+          '<tr><td>' + esc(r.email) + '</td><td>' + esc(r.requestedAt) + '</td><td class="row">' +
+          '<button class="primary" style="padding:5px 12px" data-approve="' + esc(r.email) + '">Approve</button>' +
+          '<button class="link" data-reject="' + esc(r.email) + '">Reject</button></td></tr>').join('');
+        if (done.length) html += (pend.length ? '' : '<tr><th>Email</th><th>Requested</th><th>Decision</th></tr>') +
+          done.map((r) => '<tr><td class="muted">' + esc(r.email) + '</td><td class="muted">' + esc(r.requestedAt) + '</td><td class="muted">' + esc(r.status) + (r.decidedAt ? ' - ' + esc(r.decidedAt) : '') + '</td></tr>').join('');
+        document.getElementById('requests').innerHTML = html || '<tr><td class="muted">No access requests yet.</td></tr>';
+        document.querySelectorAll('[data-approve]').forEach((b) => (b.onclick = async () => { b.disabled = true; try { state = await run('adminApproveRequest', b.dataset.approve); filterEmail = null; render(); mailNote('reqmsg', state, 'Approved'); } catch (e) { alert(e.message); b.disabled = false; } }));
+        document.querySelectorAll('[data-reject]').forEach((b) => (b.onclick = async () => { b.disabled = true; try { state = await run('adminRejectRequest', b.dataset.reject); render(); mailNote('reqmsg', state, 'Rejected'); } catch (e) { alert(e.message); b.disabled = false; } }));
+      }
+      function renderBlocked() {
+        const bl = state.blocked || [];
+        const wrap = document.getElementById('blockedwrap');
+        if (!bl.length) { wrap.style.display = 'none'; return; }
+        wrap.style.display = 'block';
+        document.getElementById('blocked').innerHTML = '<tr><th>Email</th><th>Removed</th><th></th></tr>' +
+          bl.map((b) => '<tr><td>' + esc(b.email) + '</td><td class="muted">' + esc(b.removedAt) + '</td>' +
+            '<td><button class="link" data-unblock="' + esc(b.email) + '">Add back</button></td></tr>').join('');
+        document.querySelectorAll('[data-unblock]').forEach((btn) => (btn.onclick = async () => { btn.disabled = true; try { state = await run('adminAddViewer', btn.dataset.unblock, ''); render(); } catch (e) { alert(e.message); btn.disabled = false; } }));
+      }
+      function renderCompInfo(savedAt) {
+        const el = document.getElementById('compsaved');
+        const at = savedAt || (state && state.compSnapshotAt) || null;
+        el.textContent = at ? ('Competitor data last saved: ' + fmtAgo(new Date(at).getTime()) + ' (' + new Date(at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }) + ' IST)') : 'Competitor data: not loaded yet - viewers see a "not loaded yet" message until the first reload.';
+      }
+      function render() { renderViewers(); renderBlocked(); renderRequests(); renderLog(); renderDataInfo(); renderCompInfo(); }
+      async function refresh() { state = await run('adminGetState'); render(); }
+      document.getElementById('add').onclick = async () => {
+        const msg = document.getElementById('addmsg'); msg.textContent = '';
+        try { state = await run('adminAddViewer', document.getElementById('email').value, document.getElementById('note').value); document.getElementById('email').value = ''; document.getElementById('note').value = ''; filterEmail = null; render(); msg.className = state.lastMailSent === false ? 'err' : 'muted'; msg.textContent = state.lastMailSent === false ? 'Added, but the invite email could not be sent to ' + state.lastMailTo + ' - please tell them directly.' : 'Added - invite email sent to ' + state.lastMailTo + '.'; setTimeout(() => { msg.textContent = ''; }, 10000); }
+        catch (e) { msg.className = 'err'; msg.textContent = e.message; }
+      };
+      document.getElementById('purge').onclick = async () => {
+        const msg = document.getElementById('purgemsg'); msg.textContent = 'Working...';
+        try { const r = await run('purgeLogsNow'); state = r.state; render(); msg.textContent = 'Done - ' + r.removed + ' old rows deleted.'; setTimeout(() => { msg.textContent = ''; }, 6000); }
+        catch (e) { msg.textContent = e.message; }
+      };
+      document.getElementById('wipe').onclick = async () => {
+        const msg = document.getElementById('purgemsg');
+        if (!window.confirm('Delete ALL activity history, for every person?' +
+          (filterEmail ? '\n\nThe table is filtered to ' + filterEmail + ' right now - this still deletes EVERYONE\'s history, not only theirs.' : '') +
+          '\n\nViewers, Live status and dashboard data are not affected. This cannot be undone. The deletion itself is recorded as one new activity entry.')) return;
+        msg.textContent = 'Working...';
+        try { const r = await run('adminClearLog'); state = r.state; filterEmail = null; render(); msg.textContent = 'Done - all activity deleted (' + r.removed + ' rows).'; setTimeout(() => { msg.textContent = ''; }, 8000); }
+        catch (e) { msg.textContent = e.message; }
+      };
+      document.getElementById('reloaddata').onclick = async () => {
+        const msg = document.getElementById('datamsg'), b = document.getElementById('reloaddata');
+        b.disabled = true; msg.textContent = 'Reading the sheet on the server - can take up to a minute...';
+        try { const r = await run('adminRefreshData'); msg.textContent = 'Saved. Viewers now see: ' + r.when + '.'; renderDataInfo(r.savedAt); setTimeout(() => { msg.textContent = ''; }, 10000); }
+        catch (e) { msg.textContent = 'Reload failed: ' + e.message + ' The previous saved data is unchanged.'; }
+        b.disabled = false;
+      };
+      function renderDataInfo(savedAt) {
+        const el = document.getElementById('datasaved');
+        const at = savedAt || (state && state.snapshotAt) || null;
+        el.textContent = at ? ('Last saved: ' + fmtAgo(new Date(at).getTime()) + ' (' + new Date(at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }) + ' IST)') : 'No data saved yet - viewers see a "not loaded yet" message until the first reload.';
+      }
+      
+      // Keep statuses fresh while the admin watches, and report the admin's own presence.
+      // A hidden tab neither pings nor polls - it refreshes the moment it becomes visible.
+      const refreshIfVisible = () => { if (document.visibilityState === 'visible') refresh().catch(() => {}); };
+      setInterval(refreshIfVisible, 30000);
+      document.addEventListener('visibilitychange', refreshIfVisible);
+      const ping = () => { if (document.visibilityState === 'visible') run('heartbeat').catch(() => {}); };
+      ping();
+      setInterval(ping, 60000);
+      refresh();
+      document.getElementById('reloadcomp').onclick = async function() {
+        const btn=this,msg=document.getElementById('datamsg');btn.disabled=true;msg.textContent='Reading the competitor workbook on the server - can take up to a minute...';
+        try { const r=await run('adminRefreshCompetitor');msg.textContent='Saved competitor data: '+r.brands+' brands, '+r.categories+' categories. Other saved data unchanged.';renderCompInfo(r.savedAt); }
+        catch(e){msg.textContent='Reload failed: '+e.message+' The previous saved competitor data is unchanged.';}
+        finally{btn.disabled=false;}
+      };
+      document.getElementById('reloadcharts').onclick = async function() {
+        const btn=this,msg=document.getElementById('datamsg');btn.disabled=true;msg.textContent='Saving Summary/pivot chart tables…';
+        try { const r=await run('adminRefreshSheetCharts');msg.textContent='Saved '+r.count+' Sheet chart families. Existing Insights data unchanged.'; }
+        catch(e){msg.textContent=e.message;}finally{btn.disabled=false;}
+      };
+    </script>
+  </body>
+</html>
