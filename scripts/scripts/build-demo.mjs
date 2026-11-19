@@ -1,0 +1,26 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {aggregate} from '../src/engine/aggregate.js';
+import {themes} from '../src/engine/themes.js';
+import {insights} from '../src/engine/insights.js';
+const smoke=fs.readFileSync(new URL('../tests/smoke.mjs',import.meta.url),'utf8');
+const fixture=smoke.slice(smoke.indexOf('const HEAD'),smoke.indexOf('// 1. aggregate'));
+const {rows,pack}=vm.runInNewContext(fixture+';({rows,pack})');
+const summary=aggregate(rows,{source:'Generated demonstration rows'}).out;
+summary.meta.when='generated sample data, not a live connection';
+const ins=insights(rows,pack.insights);ins.strings=pack.strings;
+const data={summary,themes:themes(rows,pack.themeDictionary),insights:ins};
+let js=fs.readFileSync(new URL('../apps-script/BundleJs.html',import.meta.url),'utf8');
+js=js.replace('<script>','').replace(/<\/script>\s*$/,'');
+js=js.replace('href="${window.__APP_URL__}?page=competitor"', 'href="https://github.com/darohitsharma/cs-dashboard/blob/main/SETUP.md"');
+const bridge=`window.__USER__={email:'demo@example.org',admin:false};window.__APP_URL__='';
+const sample=${JSON.stringify(data)};
+function runner(ok=()=>{},bad=()=>{}){return new Proxy({}, {get(_,name){if(name==='withSuccessHandler')return f=>runner(f,bad);if(name==='withFailureHandler')return f=>runner(ok,f);return ()=>setTimeout(()=>{if(name==='loadAll')ok(structuredClone(sample));else if(name==='loadSheetCharts')ok(null);else ok(true)},0)}})}
+window.google={script:{run:runner()}};`;
+const css=fs.readFileSync(new URL('../apps-script/BundleCss.html',import.meta.url),'utf8');
+const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Customer Query Analytics | Sample demo</title><link rel="stylesheet" href="./demo.css"><style>.sample-notice{padding:12px 22px;background:#294c42;color:white;text-align:center;font:13px/1.6 system-ui}.sample-notice a{color:white;text-decoration:underline}.sidebar{top:44px}</style></head><body><aside class="sample-notice">SAMPLE DEMO. Invented customer queries only. No sign-in, live Sheets, tracking or emails. Competitor collaboration requires a private deployment. <a href="https://github.com/darohitsharma/cs-dashboard">Source and setup</a></aside><div id="app"></div><script>${bridge}</script><script src="./demo.js"></script></body></html>`;
+fs.mkdirSync(new URL('../docs',import.meta.url),{recursive:true});
+fs.writeFileSync(new URL('../docs/index.html',import.meta.url),html);
+fs.writeFileSync(new URL('../docs/demo.js',import.meta.url),js);
+fs.writeFileSync(new URL('../docs/demo.css',import.meta.url),css.replace('<style>','').replace(/<\/style>\s*$/,''));
+console.log('Built docs/index.html from synthetic smoke fixtures and sanitized app bundle.');
