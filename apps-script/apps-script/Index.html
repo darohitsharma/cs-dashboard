@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Growth OS - Customer Queries</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23b5452a'/></svg>" />
+    <?!= include('BundleCss'); ?>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>window.__USER__ = <?!= userJson ?>;window.__APP_URL__ = <?!= appUrlJson ?>;</script>
+    <?!= include('BundleJs'); ?>
+  </body>
+</html>
